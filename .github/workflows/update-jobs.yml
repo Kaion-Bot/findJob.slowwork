@@ -1,0 +1,51 @@
+name: Update jobs
+
+on:
+  schedule:
+    - cron: "0 23 * * *"   # 23:00 UTC = 06:00 เวลาไทย ทุกวัน
+  workflow_dispatch:        # กดรันเองได้จากแท็บ Actions
+
+permissions:
+  contents: write           # ให้ commit jobs.json กลับเข้า repo ได้
+
+concurrency:
+  group: update-jobs
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Collect jobs
+        env:
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+        run: |
+          set +e
+          python3 collect_jobs.py --out jobs.json
+          code=$?
+          set -e
+          # 0 = สำเร็จทุกแหล่ง, 2 = สำเร็จบางแหล่ง (ยังใช้ข้อมูลได้), อื่น ๆ = ล้มเหลว
+          if [ "$code" -eq 2 ]; then
+            echo "::warning::บางแหล่งข้อมูลดึงไม่สำเร็จ ดู log ด้านบน"
+          elif [ "$code" -ne 0 ]; then
+            exit "$code"
+          fi
+
+      - name: Commit jobs.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add jobs.json
+          if git diff --cached --quiet; then
+            echo "ไม่มีการเปลี่ยนแปลง"
+          else
+            git commit -m "Update jobs.json"
+            git push
+          fi
