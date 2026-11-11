@@ -13,6 +13,7 @@
 .acct{display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--muted)}
 .lnk{background:none;border:0;color:var(--accent);font-weight:600;cursor:pointer;text-decoration:underline;padding:6px 8px}
 button.go{border:0;cursor:pointer}
+.tag.match{background:var(--accent);color:var(--accent-ink);font-weight:600}
 button.alt{background:transparent;color:var(--accent);border:1px solid var(--accent);width:100%;margin-bottom:6px}
 .chk{display:flex;gap:8px;align-items:center;font-weight:400}.chk input{width:auto}
 dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);max-width:560px;width:calc(100% - 32px);padding:20px}
@@ -63,11 +64,13 @@ li.job h2{font-size:18px;font-weight:600;margin:0}
 <div><label for="region">ภูมิภาค</label><select id="region"><option value="">ทั้งหมด</option></select></div>
 <div><label for="cat">หมวดอาชีพ</label><select id="cat"><option value="">ทั้งหมด</option></select></div>
 <label class="chk" id="mineWrap" hidden><input type="checkbox" id="mine"> เฉพาะที่ตรงกับโปรไฟล์ฉัน</label>
+<label class="chk" id="rankWrap" hidden><input type="checkbox" id="rank" checked> เรียงตามอาชีพที่ฉันอยากทำ</label>
 <div><label for="type">รูปแบบงาน</label><select id="type"><option value="">ทั้งหมด</option></select></div>
 <div><label for="source">แหล่งที่มา</label><select id="source"><option value="">ทั้งหมด</option></select></div>
 </section>
 <section aria-live="polite">
 <p class="count" id="count">กำลังโหลดข้อมูล…</p>
+<aside class="note" id="fb" style="margin-bottom:12px"></aside>
 <ul id="list"></ul>
 <button class="more" id="more" hidden>แสดงเพิ่ม</button>
 </section>
@@ -107,7 +110,7 @@ function card(j){
   var tags=[j.category,j.work_type,(j.employment||"").replace(/_/g," ")].concat(j.skills||[]).filter(Boolean);
   return '<li class="job"><h2>'+esc(j.title)+'</h2><p class="meta">'+esc(j.company)+' · '+esc(j.location)+'</p>'
   +snipBlock(j)
-  +'<div class="tags">'+tags.map(function(t){return '<span class="tag">'+esc(t)+'</span>'}).join("")+'</div>'
+  +'<div class="tags">'+(j._s>0?'<span class="tag match">ตรงกับที่คุณหา</span>':'')+tags.map(function(t){return '<span class="tag">'+esc(t)+'</span>'}).join("")+'</div>'
   +'<div class="src"><span>ที่มา: <a class="sname" href="'+esc(safeUrl(j.source_url))+'" target="_blank" rel="noopener noreferrer"><strong>'+esc(j.source_name)+'</strong></a> · ลงประกาศ '+esc(fmtDate(j.posted_at))+'</span>'
   +'<a class="go" href="'+esc(safeUrl(j.url))+'" target="_blank" rel="noopener noreferrer">ดูและสมัครที่ต้นฉบับ</a></div></li>';
 }
@@ -117,15 +120,53 @@ function render(){
     return (!r||j.region===r)&&(!c||j.category===c)&&mine(j)&&(!k||j.work_type===k)&&(!s||j.source_name===s)&&
       (!q||((j.title||"")+" "+(j.company||"")+" "+(j.skills||[]).join(" ")+" "+(j.snippet_th||"")).toLowerCase().indexOf(q)>=0);
   });
+  fbBox();
+  out.forEach(function(j){j._s=relevance(j)});
+  out.sort(function(a,b){return b._s-a._s});  /* เสถียร: คะแนนเท่ากันคงลำดับวันที่เดิม */
   $("count").textContent="พบ "+out.length+" ตำแหน่ง"+(META.generated_at?" · อัปเดตล่าสุด "+fmtDate(META.generated_at):"");
   $("list").innerHTML=out.length?out.slice(0,shown).map(card).join(""):'<li class="note">ไม่พบตำแหน่งที่ตรงกับตัวกรอง ลองล้างคำค้นหรือเลือก "ทั้งหมด"</li>';
   $("more").hidden=out.length<=shown;
 }
 var META={};
 /* ---- บัญชีผู้ใช้ (Supabase): ใส่ค่าจาก Project Settings → API ถ้าเว้นว่าง เว็บทำงานแบบไม่มีระบบล็อกอิน ---- */
-var SUPABASE_URL = "https://qphitajcsmqcxkoomods.supabase.co";
+var SUPABASE_URL = "https://qphitajcsmqcxkoomods.supabase.co"; 
 var SUPABASE_ANON_KEY = "sb_publishable_MovVYODTRUbtoNKGDR8H9Q_2YX81Ign";
 var sb=null,USER=null,PROFILE=null,CATS=[],TYPES=["Remote","Hybrid","Onsite"],signup=false,asked=false;
+/*rank*/
+var ALIAS={"นักพัฒนา":"developer","โปรแกรมเมอร์":"developer programmer","วิศวกรซอฟต์แวร์":"software engineer","นักออกแบบ":"designer","ดีไซเนอร์":"designer","นักการตลาด":"marketing","การตลาด":"marketing","คอนเทนต์":"content","นักเขียน":"writer","บัญชี":"accountant accounting","การเงิน":"finance","พยาบาล":"nurse","ครู":"teacher","อาจารย์":"teacher lecturer","ขาย":"sales","ลูกค้า":"customer","ข้อมูล":"data","นักวิเคราะห์":"analyst","บุคคล":"hr recruiter","กฎหมาย":"legal","เชฟ":"chef","โลจิสติกส์":"logistics","ขนส่ง":"logistics","วิศวกร":"engineer","โปรเจกต์":"project","ผลิตภัณฑ์":"product"};
+var STOP=["senior","junior","jr","sr","the","and","for","of","ที่","และ"];
+function relevance(j){
+  if(!PROFILE||!PROFILE.desired_title||!$("rank").checked)return 0;
+  var want=PROFILE.desired_title.toLowerCase().trim(),text=want;
+  Object.keys(ALIAS).forEach(function(k){if(want.indexOf(k)>=0)text+=" "+ALIAS[k]});
+  var toks=text.split(/[\s,\/|()+\-]+/).filter(function(t){return t.length>=2&&STOP.indexOf(t)<0});
+  var title=(j.title||"").toLowerCase(),sk=((j.skills||[]).join(" ")+" "+(j.category||"")).toLowerCase(),
+      sn=((j.snippet||"")+" "+(j.snippet_th||"")).toLowerCase(),sc=0;
+  if(want.length>=3&&title.indexOf(want)>=0)sc+=10;
+  toks.forEach(function(t){if(title.indexOf(t)>=0)sc+=3;if(sk.indexOf(t)>=0)sc+=2;if(sn.indexOf(t)>=0)sc+=1});
+  if(sc>0&&PROFILE.categories&&PROFILE.categories.indexOf(j.category)>=0)sc+=2;
+  return sc;
+}
+/*endrank*/
+/* ---- แนะนำที่มาหางานนอกระบบ: ลิงก์ค้นหาที่เปิดในเบราว์เซอร์ผู้ใช้ เราไม่ดึงหรือเก็บโพสต์ใด ๆ ---- */
+var FB_GROUPS=[]; /* ใส่ {name:"ชื่อกลุ่ม",url:"https://www.facebook.com/groups/..."} เฉพาะกลุ่มที่คุณตรวจแล้ว */
+function fbBox(){
+  var term=$("q").value.trim()||(PROFILE&&PROFILE.desired_title)||"",
+      fb="https://www.facebook.com/search/posts/?q="+encodeURIComponent(("หางาน "+term).trim()),
+      gg="https://www.google.com/search?q="+encodeURIComponent(("site:facebook.com/groups หางาน "+term).trim()),
+      a=function(u,t){return '<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(t)+'</a>'};
+  $("fb").innerHTML='<strong>ไม่เจอที่ต้องการ? ลองดูประกาศในกลุ่ม Facebook</strong><br>'
+    +a(fb,"ค้นหาโพสต์หางาน"+(term?" “"+term+"”":"")+" บน Facebook")+' · '+a(gg,"ค้นหาผ่าน Google (กลุ่มสาธารณะ)")
+    +(FB_GROUPS.length?'<br>กลุ่มแนะนำ: '+FB_GROUPS.map(function(g){return /^https:\/\/(www\.)?facebook\.com\//.test(g.url)?a(g.url,g.name):""}).join(" · "):"")
+    +'<br><small>ลิงก์เหล่านี้เปิดในเบราว์เซอร์ของคุณเอง เว็บนี้ไม่ได้ดึงหรือเก็บโพสต์จาก Facebook</small>';
+}
+function dbErr(e){
+  var m=e.message||"",c=e.code||"";
+  if(c==="PGRST205"||c==="42P01"||/schema cache|does not exist/i.test(m))return "ยังไม่มีตาราง profiles ให้รัน profiles.sql ใน Supabase SQL Editor";
+  if(c==="42501"||/row-level security/i.test(m))return "RLS ปฏิเสธ ตรวจว่า policy ใน profiles.sql สร้างครบ (insert และ update)";
+  if(/JWT|expired/i.test(m))return "เซสชันหมดอายุ ออกจากระบบแล้วเข้าใหม่";
+  return m+(c?" ("+c+")":"");
+}
 function msg(id,t){$(id).textContent=t||""}
 function mine(j){
   if(!PROFILE||!$("mine").checked)return true;
@@ -135,7 +176,7 @@ function mine(j){
 function uiAuth(){
   var i=!!USER;$("btnLogin").hidden=i;$("btnProf").hidden=!i;$("btnOut").hidden=!i;
   $("who").textContent=i?((PROFILE&&PROFILE.display_name)||USER.email):"";
-  $("mineWrap").hidden=!PROFILE;if(!PROFILE)$("mine").checked=false;
+  $("rankWrap").hidden=!(PROFILE&&PROFILE.desired_title);$("mineWrap").hidden=!PROFILE;if(!PROFILE)$("mine").checked=false;
 }
 function boxes(id,list,sel){$(id).innerHTML=list.map(function(x){return '<label class="chk"><input type="checkbox" value="'+esc(x)+'"'+(sel.indexOf(x)>=0?" checked":"")+'> '+esc(x)+'</label>'}).join("")}
 function vals(id){return [].map.call(document.querySelectorAll("#"+id+" input:checked"),function(x){return x.value})}
@@ -179,13 +220,15 @@ if(SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase){
   });
   $("fProf").addEventListener("submit",function(e){
     e.preventDefault();
+    if(!USER){msg("pMsg","ยังไม่ได้เข้าสู่ระบบ ลองเข้าสู่ระบบใหม่");return}
+    var btn=$("fProf").querySelector(".go");btn.disabled=true;msg("pMsg","กำลังบันทึก…");
     var row={user_id:USER.id,display_name:$("pName").value.trim().slice(0,60),desired_title:$("pTitle").value.trim().slice(0,100),
       categories:vals("pCats").filter(function(x){return CATS.indexOf(x)>=0}),work_types:vals("pTypes").filter(function(x){return TYPES.indexOf(x)>=0}),
       consent_at:new Date().toISOString(),updated_at:new Date().toISOString()};
     sb.from("profiles").upsert(row).then(function(r){
-      if(r.error){msg("pMsg","บันทึกไม่สำเร็จ: "+r.error.message);return}
-      PROFILE=row;uiAuth();render();msg("pMsg","บันทึกแล้ว");
-    });
+      if(r.error){console.error(r.error);msg("pMsg","บันทึกไม่สำเร็จ: "+dbErr(r.error));return}
+      PROFILE=row;uiAuth();render();$("dProf").close();
+    }).catch(function(x){console.error(x);msg("pMsg","บันทึกไม่สำเร็จ: "+x.message)}).then(function(){btn.disabled=false});
   });
   $("pDel").onclick=function(){
     if(!confirm("ลบข้อมูลโปรไฟล์ของคุณ?"))return;
@@ -195,7 +238,7 @@ if(SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase){
     });
   };
 }
-["q","region","cat","type","source","mine"].forEach(function(id){$(id).addEventListener("input",function(){shown=PAGE;render()})});
+["q","region","cat","type","source","mine","rank"].forEach(function(id){$(id).addEventListener("input",function(){shown=PAGE;render()})});
 $("list").addEventListener("click",function(e){
   var b=e.target.closest(".tog");if(!b)return;
   var li=b.closest("li"),th=li.querySelector(".th"),o=li.querySelector(".orig"),toOrig=o.hidden;
