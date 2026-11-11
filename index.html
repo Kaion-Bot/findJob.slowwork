@@ -3,12 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <title>Worldwide Jobs – รวมประกาศงานทั่วโลกพร้อมที่มา</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600&display=swap">
 <style>
 :root{color-scheme:light dark;--bg:#eef3f1;--surface:#fff;--ink:#14272b;--muted:#566a6d;--line:#cfdcd8;--accent:#0b6e6e;--accent-ink:#fff;--chip:#dfeeea;--err-bg:#fde8e6;--err-ink:#7a1f16}
 @media (prefers-color-scheme:dark){:root{--bg:#0f1c1e;--surface:#162629;--ink:#e6f0ee;--muted:#9bb2b0;--line:#2a3f42;--accent:#5fd0c4;--accent-ink:#0a1a1c;--chip:#1f3a3b;--err-bg:#3d1c18;--err-ink:#f5c2bb}}
 *{box-sizing:border-box}
+.acct{display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.lnk{background:none;border:0;color:var(--accent);font-weight:600;cursor:pointer;text-decoration:underline;padding:6px 8px}
+button.go{border:0;cursor:pointer}
+.chk{display:flex;gap:8px;align-items:center;font-weight:400}.chk input{width:auto}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);max-width:560px;width:calc(100% - 32px);padding:20px}
+dialog::backdrop{background:rgba(0,0,0,.5)}dialog h2{margin:0 0 12px;font-size:20px}
+fieldset{border:1px solid var(--line);border-radius:8px;margin:12px 0;padding:8px 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.msg{min-height:1.5em;font-size:14px;color:var(--muted);margin:8px 0 0}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.6 "IBM Plex Sans Thai",system-ui,sans-serif;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
 header{max-width:1040px;margin:0 auto;padding:28px 20px 8px}
 h1{font:600 clamp(28px,5vw,42px)/1.15 Fraunces,Georgia,serif;margin:0 0 6px;letter-spacing:-.01em}
@@ -26,6 +37,8 @@ li.job{background:var(--surface);border:1px solid var(--line);border-radius:10px
 li.job h2{font-size:18px;font-weight:600;margin:0}
 .meta{color:var(--muted);font-size:14px;margin:0}
 .snip{margin:8px 0 0;font-size:15px;color:var(--muted);max-width:70ch}
+.tog{margin:6px 10px 0 0;padding:0;border:0;background:none;color:var(--accent);font-weight:600;font-size:14px;cursor:pointer;text-decoration:underline}
+.lang{font-size:13px;color:var(--muted)}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .tag{background:var(--chip);border-radius:999px;padding:2px 10px;font-size:13px}
 .src{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px;margin-top:12px;font-size:14px;color:var(--muted)}
@@ -39,6 +52,7 @@ li.job h2{font-size:18px;font-weight:600;margin:0}
 </head>
 <body>
 <header>
+<div class="acct" id="acct" hidden><span id="who"></span><button type="button" class="lnk" id="btnLogin">เข้าสู่ระบบ</button><button type="button" class="lnk" id="btnProf" hidden>โปรไฟล์ของฉัน</button><button type="button" class="lnk" id="btnOut" hidden>ออกจากระบบ</button></div>
 <h1>Worldwide Jobs</h1>
 <p class="sub">รวมประกาศงานจากหลายแหล่งทั่วโลกไว้ที่เดียว ทุกรายการบอกที่มาและพาไปสมัครที่หน้าต้นฉบับ</p>
 </header>
@@ -46,6 +60,8 @@ li.job h2{font-size:18px;font-weight:600;margin:0}
 <section class="filters" aria-label="ตัวกรอง">
 <div><label for="q">ค้นหา</label><input id="q" type="search" placeholder="ตำแหน่ง บริษัท หรือทักษะ"></div>
 <div><label for="region">ภูมิภาค</label><select id="region"><option value="">ทั้งหมด</option></select></div>
+<div><label for="cat">หมวดอาชีพ</label><select id="cat"><option value="">ทั้งหมด</option></select></div>
+<label class="chk" id="mineWrap" hidden><input type="checkbox" id="mine"> เฉพาะที่ตรงกับโปรไฟล์ฉัน</label>
 <div><label for="type">รูปแบบงาน</label><select id="type"><option value="">ทั้งหมด</option></select></div>
 <div><label for="source">แหล่งที่มา</label><select id="source"><option value="">ทั้งหมด</option></select></div>
 </section>
@@ -55,42 +71,132 @@ li.job h2{font-size:18px;font-weight:600;margin:0}
 <button class="more" id="more" hidden>แสดงเพิ่ม</button>
 </section>
 </main>
+<dialog id="dAuth"><form id="fAuth"><h2 id="aTitle">เข้าสู่ระบบ</h2>
+<label for="aEmail">อีเมล</label><input id="aEmail" type="email" required autocomplete="email">
+<label for="aPass">รหัสผ่าน (อย่างน้อย 8 ตัว)</label><input id="aPass" type="password" required minlength="8" autocomplete="current-password">
+<p class="msg" id="aMsg" role="status"></p>
+<div class="row"><button class="go" id="aSubmit">เข้าสู่ระบบ</button><button type="button" class="lnk" id="aSwitch">ยังไม่มีบัญชี? สมัครสมาชิก</button><button type="button" class="lnk" id="aClose">ปิด</button></div></form></dialog>
+<dialog id="dProf"><form id="fProf"><h2>โปรไฟล์ของฉัน</h2>
+<label for="pName">ชื่อที่แสดง (ไม่บังคับ)</label><input id="pName" maxlength="60">
+<label for="pTitle">อาชีพหรือตำแหน่งที่อยากทำ</label><input id="pTitle" maxlength="100" placeholder="เช่น Data Analyst, นักการตลาด">
+<fieldset><legend>หมวดอาชีพที่สนใจ</legend><div class="grid" id="pCats"></div></fieldset>
+<fieldset><legend>รูปแบบงานที่ต้องการ</legend><div class="grid" id="pTypes"></div></fieldset>
+<label class="chk"><input type="checkbox" id="pConsent" required> ยินยอมให้เก็บอีเมลและข้อมูลในแบบฟอร์มนี้เพื่อแนะนำงาน ขอลบได้ทุกเมื่อ</label>
+<p class="msg" id="pMsg" role="status"></p>
+<div class="row"><button class="go">บันทึก</button><button type="button" class="lnk" id="pDel">ลบข้อมูลโปรไฟล์</button><button type="button" class="lnk" id="pClose">ปิด</button></div></form></dialog>
 <script>
 var DATA_URL="jobs.json", PAGE=30, JOBS=[], shown=PAGE;
 var $=function(id){return document.getElementById(id)};
-function esc(s){var e=document.createElement("div");e.textContent=s==null?"":String(s);return e.innerHTML}
+function esc(s){var e=document.createElement("div");e.textContent=s==null?"":String(s);return e.innerHTML.replace(/"/g,"&quot;")}
 function safeUrl(u){return /^https?:\/\//i.test(u||"")?u:"#"}
 function fmtDate(d){if(!d)return"ไม่ระบุวันที่";var x=new Date(d);return isNaN(x)?d:x.toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"numeric"})}
 function fill(id,key){
   var v=[];JOBS.forEach(function(j){if(j[key]&&v.indexOf(j[key])<0)v.push(j[key])});
   v.sort();v.forEach(function(x){var o=document.createElement("option");o.value=x;o.textContent=x;$(id).appendChild(o)});
 }
+function snipBlock(j){
+  if(!j.snippet)return"";
+  if(!j.snippet_th)return '<p class="snip">'+esc(j.snippet)+'</p>';
+  return '<p class="snip th">'+esc(j.snippet_th)+'</p><p class="snip orig" hidden>'+esc(j.snippet)+'</p>'
+    +'<button type="button" class="tog">ดูต้นฉบับ</button><span class="lang">แปลโดย AI</span>';
+}
 function card(j){
-  var tags=[j.work_type,(j.employment||"").replace(/_/g," ")].concat(j.skills||[]).filter(Boolean);
+  var tags=[j.category,j.work_type,(j.employment||"").replace(/_/g," ")].concat(j.skills||[]).filter(Boolean);
   return '<li class="job"><h2>'+esc(j.title)+'</h2><p class="meta">'+esc(j.company)+' · '+esc(j.location)+'</p>'
-  +(j.snippet?'<p class="snip">'+esc(j.snippet)+'</p>':'')
+  +snipBlock(j)
   +'<div class="tags">'+tags.map(function(t){return '<span class="tag">'+esc(t)+'</span>'}).join("")+'</div>'
   +'<div class="src"><span>ที่มา: <a class="sname" href="'+esc(safeUrl(j.source_url))+'" target="_blank" rel="noopener noreferrer"><strong>'+esc(j.source_name)+'</strong></a> · ลงประกาศ '+esc(fmtDate(j.posted_at))+'</span>'
   +'<a class="go" href="'+esc(safeUrl(j.url))+'" target="_blank" rel="noopener noreferrer">ดูและสมัครที่ต้นฉบับ</a></div></li>';
 }
 function render(){
-  var q=$("q").value.trim().toLowerCase(),r=$("region").value,k=$("type").value,s=$("source").value;
+  var q=$("q").value.trim().toLowerCase(),r=$("region").value,c=$("cat").value,k=$("type").value,s=$("source").value;
   var out=JOBS.filter(function(j){
-    return (!r||j.region===r)&&(!k||j.work_type===k)&&(!s||j.source_name===s)&&
-      (!q||((j.title||"")+" "+(j.company||"")+" "+(j.skills||[]).join(" ")).toLowerCase().indexOf(q)>=0);
+    return (!r||j.region===r)&&(!c||j.category===c)&&mine(j)&&(!k||j.work_type===k)&&(!s||j.source_name===s)&&
+      (!q||((j.title||"")+" "+(j.company||"")+" "+(j.skills||[]).join(" ")+" "+(j.snippet_th||"")).toLowerCase().indexOf(q)>=0);
   });
   $("count").textContent="พบ "+out.length+" ตำแหน่ง"+(META.generated_at?" · อัปเดตล่าสุด "+fmtDate(META.generated_at):"");
   $("list").innerHTML=out.length?out.slice(0,shown).map(card).join(""):'<li class="note">ไม่พบตำแหน่งที่ตรงกับตัวกรอง ลองล้างคำค้นหรือเลือก "ทั้งหมด"</li>';
   $("more").hidden=out.length<=shown;
 }
 var META={};
-["q","region","type","source"].forEach(function(id){$(id).addEventListener("input",function(){shown=PAGE;render()})});
+/* ---- บัญชีผู้ใช้ (Supabase): ใส่ค่าจาก Project Settings → API ถ้าเว้นว่าง เว็บทำงานแบบไม่มีระบบล็อกอิน ---- */
+var SUPABASE_URL="",https://qphitajcsmqcxkoomods.supabase.co/rest/v1/"";
+var sb=null,USER=null,PROFILE=null,CATS=[],TYPES=["Remote","Hybrid","Onsite"],signup=false,asked=false;
+function msg(id,t){$(id).textContent=t||""}
+function mine(j){
+  if(!PROFILE||!$("mine").checked)return true;
+  if(PROFILE.categories.length&&PROFILE.categories.indexOf(j.category)<0)return false;
+  return !PROFILE.work_types.length||j.work_type==="ไม่ระบุ"||PROFILE.work_types.indexOf(j.work_type)>=0;
+}
+function uiAuth(){
+  var i=!!USER;$("btnLogin").hidden=i;$("btnProf").hidden=!i;$("btnOut").hidden=!i;
+  $("who").textContent=i?((PROFILE&&PROFILE.display_name)||USER.email):"";
+  $("mineWrap").hidden=!PROFILE;if(!PROFILE)$("mine").checked=false;
+}
+function boxes(id,list,sel){$(id).innerHTML=list.map(function(x){return '<label class="chk"><input type="checkbox" value="'+esc(x)+'"'+(sel.indexOf(x)>=0?" checked":"")+'> '+esc(x)+'</label>'}).join("")}
+function vals(id){return [].map.call(document.querySelectorAll("#"+id+" input:checked"),function(x){return x.value})}
+function openProf(){
+  var p=PROFILE||{categories:[],work_types:[]};
+  $("pName").value=p.display_name||"";$("pTitle").value=p.desired_title||"";$("pConsent").checked=false;msg("pMsg","");
+  boxes("pCats",CATS,p.categories);boxes("pTypes",TYPES,p.work_types);$("dProf").showModal();
+}
+function loadProfile(){
+  if(!USER){PROFILE=null;uiAuth();render();return}
+  sb.from("profiles").select("*").eq("user_id",USER.id).maybeSingle().then(function(r){
+    PROFILE=r.data||null;uiAuth();render();
+    if(!PROFILE&&!asked){asked=true;openProf()}
+  });
+}
+if(SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase){
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);$("acct").hidden=false;
+  sb.auth.onAuthStateChange(function(ev,s){USER=s?s.user:null;setTimeout(loadProfile,0)});
+  $("btnLogin").onclick=function(){msg("aMsg","");$("dAuth").showModal()};
+  $("btnProf").onclick=openProf;$("btnOut").onclick=function(){sb.auth.signOut()};
+  $("aClose").onclick=function(){$("dAuth").close()};$("pClose").onclick=function(){$("dProf").close()};
+  $("aSwitch").onclick=function(){
+    signup=!signup;$("aTitle").textContent=$("aSubmit").textContent=signup?"สมัครสมาชิก":"เข้าสู่ระบบ";
+    $("aSwitch").textContent=signup?"มีบัญชีแล้ว? เข้าสู่ระบบ":"ยังไม่มีบัญชี? สมัครสมาชิก";
+    $("aPass").autocomplete=signup?"new-password":"current-password";
+  };
+  $("fAuth").addEventListener("submit",function(e){
+    e.preventDefault();msg("aMsg","กำลังดำเนินการ…");
+    var c={email:$("aEmail").value.trim(),password:$("aPass").value};
+    (signup?sb.auth.signUp(c):sb.auth.signInWithPassword(c)).then(function(r){
+      if(r.error){msg("aMsg","ไม่สำเร็จ: "+r.error.message);return}
+      if(signup&&!r.data.session){msg("aMsg","สมัครแล้ว ตรวจอีเมลเพื่อยืนยันก่อนเข้าสู่ระบบ");return}
+      $("dAuth").close();
+    });
+  });
+  $("fProf").addEventListener("submit",function(e){
+    e.preventDefault();
+    var row={user_id:USER.id,display_name:$("pName").value.trim().slice(0,60),desired_title:$("pTitle").value.trim().slice(0,100),
+      categories:vals("pCats").filter(function(x){return CATS.indexOf(x)>=0}),work_types:vals("pTypes").filter(function(x){return TYPES.indexOf(x)>=0}),
+      consent_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+    sb.from("profiles").upsert(row).then(function(r){
+      if(r.error){msg("pMsg","บันทึกไม่สำเร็จ: "+r.error.message);return}
+      PROFILE=row;uiAuth();render();msg("pMsg","บันทึกแล้ว");
+    });
+  });
+  $("pDel").onclick=function(){
+    if(!confirm("ลบข้อมูลโปรไฟล์ของคุณ?"))return;
+    sb.from("profiles").delete().eq("user_id",USER.id).then(function(r){
+      if(r.error){msg("pMsg","ลบไม่สำเร็จ: "+r.error.message);return}
+      PROFILE=null;uiAuth();render();$("dProf").close();
+    });
+  };
+}
+["q","region","cat","type","source","mine"].forEach(function(id){$(id).addEventListener("input",function(){shown=PAGE;render()})});
+$("list").addEventListener("click",function(e){
+  var b=e.target.closest(".tog");if(!b)return;
+  var li=b.closest("li"),th=li.querySelector(".th"),o=li.querySelector(".orig"),toOrig=o.hidden;
+  o.hidden=!toOrig;th.hidden=toOrig;b.textContent=toOrig?"ดูคำแปล":"ดูต้นฉบับ";
+});
 $("more").addEventListener("click",function(){shown+=PAGE;render()});
 fetch(DATA_URL,{cache:"no-cache"}).then(function(r){
   if(!r.ok)throw new Error("HTTP "+r.status);return r.json();
 }).then(function(d){
-  META=d;JOBS=Array.isArray(d.jobs)?d.jobs:[];
-  fill("region","region");fill("type","work_type");
+  META=d;CATS=d.categories||[];JOBS=Array.isArray(d.jobs)?d.jobs:[];
+  fill("region","region");CATS.forEach(function(x){var o=document.createElement("option");o.value=x;o.textContent=x;$("cat").appendChild(o)});fill("type","work_type");
   var v=[];JOBS.forEach(function(j){if(v.indexOf(j.source_name)<0)v.push(j.source_name)});
   v.sort().forEach(function(x){var o=document.createElement("option");o.value=x;o.textContent=x;$("source").appendChild(o)});
   render();
