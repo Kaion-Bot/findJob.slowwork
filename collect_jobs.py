@@ -23,7 +23,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 # ใส่อีเมลหรือเว็บของคุณ เพื่อให้เจ้าของ API ติดต่อได้ถ้ามีปัญหา
-USER_AGENT = "WorldwideJobsBot/0.1 (+mailto:you@example.com)"
+USER_AGENT = "WorldwideJobsBot/0.1 (+mailto:kaninrasameebaramee@gmail.com)"
 SNIPPET_LEN = 200  # เก็บแค่ข้อความสั้น ๆ ไม่คัดลอกทั้งประกาศ
 
 # ---------------------------------------------------------------- helpers
