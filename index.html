@@ -13,6 +13,7 @@
 .acct{display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--muted)}
 .lnk{background:none;border:0;color:var(--accent);font-weight:600;cursor:pointer;text-decoration:underline;padding:6px 8px}
 button.go{border:0;cursor:pointer}
+button.alt{background:transparent;color:var(--accent);border:1px solid var(--accent);width:100%;margin-bottom:6px}
 .chk{display:flex;gap:8px;align-items:center;font-weight:400}.chk input{width:auto}
 dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);max-width:560px;width:calc(100% - 32px);padding:20px}
 dialog::backdrop{background:rgba(0,0,0,.5)}dialog h2{margin:0 0 12px;font-size:20px}
@@ -72,6 +73,8 @@ li.job h2{font-size:18px;font-weight:600;margin:0}
 </section>
 </main>
 <dialog id="dAuth"><form id="fAuth"><h2 id="aTitle">เข้าสู่ระบบ</h2>
+<button type="button" class="go alt" id="aGoogle">ดำเนินการต่อด้วย Google</button>
+<p class="msg" style="text-align:center">หรือใช้อีเมล</p>
 <label for="aEmail">อีเมล</label><input id="aEmail" type="email" required autocomplete="email">
 <label for="aPass">รหัสผ่าน (อย่างน้อย 8 ตัว)</label><input id="aPass" type="password" required minlength="8" autocomplete="current-password">
 <p class="msg" id="aMsg" role="status"></p>
@@ -153,6 +156,12 @@ if(SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase){
   sb.auth.onAuthStateChange(function(ev,s){USER=s?s.user:null;setTimeout(loadProfile,0)});
   $("btnLogin").onclick=function(){msg("aMsg","");$("dAuth").showModal()};
   $("btnProf").onclick=openProf;$("btnOut").onclick=function(){sb.auth.signOut()};
+  $("aGoogle").onclick=function(){
+    msg("aMsg","กำลังไปที่ Google…");
+    sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname}}).then(function(r){
+      if(r.error)msg("aMsg","ไม่สำเร็จ: "+r.error.message);
+    });
+  };
   $("aClose").onclick=function(){$("dAuth").close()};$("pClose").onclick=function(){$("dProf").close()};
   $("aSwitch").onclick=function(){
     signup=!signup;$("aTitle").textContent=$("aSubmit").textContent=signup?"สมัครสมาชิก":"เข้าสู่ระบบ";
